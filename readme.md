@@ -5,7 +5,7 @@
 ## Usage
 
 ```sh
-$ chequera <file/directory>
+$ chequera test --path <file/directory>
 ```
 
 ## Examples
@@ -13,19 +13,19 @@ $ chequera <file/directory>
 1. Test all queries in the `steampipe-plugin-aws` plugin docs directory:
 
 ```sh
-$ chequera ./steampipe-plugin-aws/docs
+$ chequera test --path ./steampipe-plugin-aws/docs
 ```
 
 2. Test queries in a single file:
 
 ```sh
-$ chequera ./steampipe-plugin-aws/docs/tables/aws_s3_bucket.md
+$ chequera test --path ./steampipe-plugin-aws/docs/tables/aws_s3_bucket.md
 ```
 
 3. Ignore certain files / files with names that contain certain strings:
 
 ```sh
-$ IGNORE=aws_s3_bucket,aws_sqs_queue chequera ./steampipe-plugin-aws/docs
+$ IGNORE=aws_s3_bucket,aws_sqs_queue chequera test --path ./steampipe-plugin-aws/docs
 ```
 
 (will ignore files whose names contain `aws_s3_bucket` or `aws_sqs_queue`)
@@ -33,7 +33,7 @@ $ IGNORE=aws_s3_bucket,aws_sqs_queue chequera ./steampipe-plugin-aws/docs
 4. Change timeout for each query to 60 seconds (default is 30s):
 
 ```sh
-$ TIMEOUT=60 chequera ./steampipe-plugin-aws/docs
+$ TIMEOUT=60 chequera test --path ./steampipe-plugin-aws/docs
 ```
 
 TODO:
