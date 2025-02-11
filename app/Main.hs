@@ -23,25 +23,32 @@ import Types
 main :: IO ()
 main = do
   args <- getArgs
+  _ <- startService
   files <- findAllDocFiles (head args)
-  (eCount, sCount, tCount) <-
+  (eCount, sCount, tCount, eFiles) <-
     foldM
-      ( \(errorCount :: Int, successCount :: Int, totalCount :: Int) f -> do
-          putStrLn $ clrBlue "Testing: " ++ f
+      ( \(errorCount :: Int, successCount :: Int, totalCount :: Int, errFiles :: [FilePath]) f -> do
+          putStrLn $ "\n" ++ clrBlue "Testing: " ++ f
           res <- testFile f
           case res of
             Left errs -> do
               mapM_ putStrLn errs
-              pure (errorCount + length errs, successCount, totalCount + 1)
+              pure (errorCount + length errs, successCount, totalCount + 1, f : errFiles)
             Right _ -> do
-              putStrLn $ clrGreen "All good!" ++ "\n"
-              pure (errorCount, successCount + 1, totalCount + 1)
+              putStrLn $ clrGreen "All good!"
+              pure (errorCount, successCount + 1, totalCount + 1, errFiles)
       )
-      (0, 0, 0)
+      (0, 0, 0, [])
       files
+  putStrLn "\n"
   putStrLn $ clrRed "Errors: " ++ show eCount
   putStrLn $ clrGreen "Successes: " ++ show sCount
   putStrLn $ "Total: " ++ show tCount
+  putStrLn "\n"
+  unless (null eFiles) $ do
+    putStrLn $ clrRed "These files have problematic queries: "
+    mapM_ putStrLn eFiles
+  stopService
 
 runQueriesFromFile :: FilePath -> IO (Either [AppError] ())
 runQueriesFromFile file = do
@@ -92,11 +99,11 @@ findAllDocFiles dir = do
 
 prettyPrintError :: AppError -> String
 prettyPrintError err = case err of
-  QueryExtractorError msg -> clrRed "Error when trying to extract queries: " ++ msg ++ "\n"
-  QueryExecError (QueryString q, e) -> clrRed "Error in query: " ++ q ++ "\n" ++ "Reason: " ++ e ++ "\n"
-  ExecError e -> clrRed "Error in shell command: " ++ e ++ "\n"
-  TimeoutError query -> clrRed "Timeout in query: " ++ query ++ "\n"
-  UnknownError -> clrRed "Some weird shit happened." ++ "\n"
+  QueryExtractorError msg -> clrRed "Error when trying to extract queries: " ++ msg
+  QueryExecError (QueryString q, e) -> clrRed "Error in query: " ++ q ++ "\n" ++ "Reason: " ++ e
+  ExecError e -> clrRed "Error in shell command: " ++ e
+  TimeoutError query -> clrRed "Timeout in query: " ++ query
+  UnknownError -> clrRed "Some weird shit happened."
 
 testFile :: FilePath -> IO (Either [String] ())
 testFile file = do

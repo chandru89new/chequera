@@ -20,7 +20,6 @@ exec' cmd opts = do
       Nothing -> return defaultTimeoutSeconds
       Just s -> return $ maybe defaultTimeoutSeconds (* 1000000) $ readMaybe s
   res <- timeout timeoutSeconds $ readProcessWithExitCode cmd opts ""
-  print res
   case res of
     Just (ExitSuccess, _, _) -> return ()
     Just (ExitFailure _, _, err) -> throwIO (ExecError err)
