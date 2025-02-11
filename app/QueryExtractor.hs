@@ -12,8 +12,14 @@ sqlPrefix = "```sql"
 postgresPrefix :: String
 postgresPrefix = "```sql+postgres"
 
-extractQueryFromString :: String -> Either AppError [QueryString]
-extractQueryFromString str = fn (Right (False, [], [])) (zip [1 ..] $ lines str)
+eoqStart :: String -> Bool
+eoqStart str = (==) (unwords . words $ str) "sql = <<-EOQ"
+
+eoqEnd :: String -> Bool
+eoqEnd str = (==) (unwords . words $ str) "EOQ" && not (eoqStart str)
+
+extractQueryFromString :: Pipeling -> String -> Either AppError [QueryString]
+extractQueryFromString pipeling str = fn (Right (False, [], [])) (zip [1 ..] $ lines str)
  where
   fn :: Either AppError (Bool, [String], [QueryString]) -> [(Int, String)] -> Either AppError [QueryString]
   fn (Left err) _ = Left err
@@ -21,31 +27,38 @@ extractQueryFromString str = fn (Right (False, [], [])) (zip [1 ..] $ lines str)
     | mode = Left $ QueryExtractorError "Reached end of file, but query block seems unterminated."
     | otherwise = Right qs
   fn (Right (mode, acc, qs)) ((n, l) : ls)
-    | mode && isNormalLine l = fn (Right (mode, acc ++ [l], qs)) ls
-    | mode && isTerminateLine l = fn (Right (False, [], qs ++ [QueryString ((unwords . words . unlines) acc)])) ls
-    | mode && isInvalidLine l ls = Left $ QueryExtractorError $ "Unterminted query block near line " ++ show n ++ "."
-    | not mode && isStartLine l = fn (Right (True, [], qs)) ls
+    | mode && isNormalLine pipeling l = fn (Right (mode, acc ++ [l], qs)) ls
+    | mode && isTerminateLine pipeling l = fn (Right (False, [], qs ++ [QueryString ((unwords . words . unlines) acc)])) ls
+    | mode && isInvalidLine pipeling l ls = Left $ QueryExtractorError $ "Unterminted query block near line " ++ show n ++ "."
+    | not mode && isStartLine pipeling l = fn (Right (True, [], qs)) ls
     | otherwise = fn (Right (False, [], qs)) ls
 
-  isStartLine :: String -> Bool
-  isStartLine line = isPrefixOf postgresPrefix line || line == "```sql"
+  isStartLine :: Pipeling -> String -> Bool
+  isStartLine Steampipe line = isPrefixOf postgresPrefix line || line == "```sql"
+  isStartLine Powerpipe line = eoqStart line
 
-  isTerminateLine :: String -> Bool
-  isTerminateLine line = line == "```"
+  isTerminateLine :: Pipeling -> String -> Bool
+  isTerminateLine Steampipe line = line == "```"
+  isTerminateLine Powerpipe line = eoqEnd line
 
-  isNormalLine :: String -> Bool
-  isNormalLine line = line /= "```" && not (sqlPrefix `isPrefixOf` line)
+  isNormalLine :: Pipeling -> String -> Bool
+  isNormalLine Steampipe line = line /= "```" && not (sqlPrefix `isPrefixOf` line)
+  isNormalLine Powerpipe line = not (eoqStart line) && not (eoqEnd line)
 
-  isInvalidLine :: String -> [(Int, String)] -> Bool
-  isInvalidLine line ls
+  isInvalidLine :: Pipeling -> String -> [(Int, String)] -> Bool
+  isInvalidLine Steampipe line ls
     | sqlPrefix `isPrefixOf` line = True
     | null ls = True
     | otherwise = False
+  isInvalidLine Powerpipe line ls
+    | eoqStart line = True
+    | null ls = True
+    | otherwise = False
 
-extractQueriesFromFile :: FilePath -> IO [QueryString]
-extractQueriesFromFile path = do
+extractQueriesFromFile :: Pipeling -> FilePath -> IO [QueryString]
+extractQueriesFromFile pipeling path = do
   content <- readFile path
-  case extractQueryFromString content of
+  case extractQueryFromString pipeling content of
     Left (QueryExtractorError err) -> throwIO (QueryExtractorError err)
     Left _ -> throwIO UnknownError
     Right queries -> return queries

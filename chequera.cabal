@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               chequera
-version:            0.1.0.0
+version:            0.1.1
 -- synopsis:
 -- description:
 license:            MIT
@@ -19,7 +19,7 @@ common warnings
 executable chequera
     import:             warnings
     main-is:            Main.hs
-    other-modules:      Steampipe,Exec,QueryExtractor,Types
+    other-modules:      Steampipe,Exec,QueryExtractor,Types,Paths_chequera
     -- other-extensions:
     build-depends:      base ^>=4.17.2.1,
                         process>=1.6,

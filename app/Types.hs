@@ -13,3 +13,11 @@ data AppError
 instance Exception AppError
 
 newtype QueryString = QueryString String deriving (Show)
+
+data Command
+  = Invalid
+  | Help
+  | Test Pipeling String
+  | Version
+
+data Pipeling = Steampipe | Powerpipe deriving (Eq, Show)
