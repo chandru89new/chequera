@@ -111,7 +111,7 @@ runQueriesFromFile pipeling file = do
 
 findAllDocFiles :: Pipeling -> FilePath -> IO [FilePath]
 findAllDocFiles pipeling dir = do
-  ignoresString <- lookupEnv "IGNORE"
+  ignoresString <- lookupEnv "CQ_IGNORE"
   let ignores = case ignoresString of
         Nothing -> []
         Just s -> map unpack $ splitOn (pack ",") $ pack s

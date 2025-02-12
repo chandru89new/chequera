@@ -25,7 +25,7 @@ $ chequera test --path ./steampipe-plugin-aws/docs/tables/aws_s3_bucket.md
 3. Ignore certain files / files with names that contain certain strings:
 
 ```sh
-$ IGNORE=aws_s3_bucket,aws_sqs_queue chequera test --path ./steampipe-plugin-aws/docs
+$ CQ_IGNORE=aws_s3_bucket,aws_sqs_queue chequera test --path ./steampipe-plugin-aws/docs
 ```
 
 (will ignore files whose names contain `aws_s3_bucket` or `aws_sqs_queue`)
@@ -33,7 +33,7 @@ $ IGNORE=aws_s3_bucket,aws_sqs_queue chequera test --path ./steampipe-plugin-aws
 4. Change timeout for each query to 60 seconds (default is 30s):
 
 ```sh
-$ TIMEOUT=60 chequera test --path ./steampipe-plugin-aws/docs
+$ CQ_TIMEOUT=60 chequera test --path ./steampipe-plugin-aws/docs
 ```
 
 TODO:

@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               chequera
-version:            0.1.1
+version:            0.1.2
 -- synopsis:
 -- description:
 license:            MIT
@@ -23,7 +23,6 @@ executable chequera
     -- other-extensions:
     build-depends:      base ^>=4.17.2.1,
                         process>=1.6,
-                        raw-strings-qq,
                         text,
                         async,
                         split

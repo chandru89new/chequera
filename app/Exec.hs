@@ -15,7 +15,7 @@ defaultTimeoutSeconds = 30 * 1000000
 exec' :: String -> [String] -> IO ()
 exec' cmd opts = do
   timeoutSeconds <- do
-    t <- lookupEnv "TIMEOUT"
+    t <- lookupEnv "CQ_TIMEOUT"
     case t of
       Nothing -> return defaultTimeoutSeconds
       Just s -> return $ maybe defaultTimeoutSeconds (* 1000000) $ readMaybe s
