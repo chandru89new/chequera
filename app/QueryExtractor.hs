@@ -28,7 +28,7 @@ extractQueryFromString pipeling str = fn (Right (False, [], [])) (zip [1 ..] $ l
     | otherwise = Right qs
   fn (Right (mode, acc, qs)) ((n, l) : ls)
     | mode && isNormalLine pipeling l = fn (Right (mode, acc ++ [l], qs)) ls
-    | mode && isTerminateLine pipeling l = fn (Right (False, [], qs ++ [QueryString ((unwords . words . unlines) acc)])) ls
+    | mode && isTerminateLine pipeling l = fn (Right (False, [], qs ++ [QueryString (unlines acc)])) ls
     | mode && isInvalidLine pipeling l ls = Left $ QueryExtractorError $ "Unterminted query block near line " ++ show n ++ "."
     | not mode && isStartLine pipeling l = fn (Right (True, [], qs)) ls
     | otherwise = fn (Right (False, [], qs)) ls
