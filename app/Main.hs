@@ -129,7 +129,7 @@ findAllDocFiles pipeling dir = do
 prettyPrintError :: AppError -> String
 prettyPrintError err = case err of
   QueryExtractorError msg -> clrRed "Error when trying to extract queries: " ++ msg
-  QueryExecError (QueryString q, e) -> clrRed "Error in SQL query: " ++ q ++ "\n" ++ "Reason: " ++ e
+  QueryExecError (QueryString q, e) -> clrRed "Error in SQL query: " ++ q ++ "Reason: " ++ e
   ExecError e -> clrRed "Error in shell command: " ++ e
   TimeoutError query -> clrRed "Timeout in query: " ++ query
   UnknownError -> clrRed "Some weird shit happened."
