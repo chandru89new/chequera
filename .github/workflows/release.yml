@@ -69,7 +69,7 @@ jobs:
           tar czf chequera-${{ runner.os }}-${{ matrix.arch }}-${{ inputs.version }}.tar.gz -C $(dirname "$BINARY") $(basename "$BINARY")
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: chequera-${{ runner.os }}-${{ matrix.arch }}-${{ inputs.version }}
           path: "*.tar.gz"
