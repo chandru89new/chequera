@@ -1,6 +1,7 @@
 name: Build Chequera Binaries
 
-permissions: write
+permissions:
+  contents: write
 
 on:
   workflow_dispatch:
