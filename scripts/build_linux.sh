@@ -26,4 +26,4 @@ VERSION=$(./release/chequera version)
 echo "VERSION=$VERSION" >> $GITHUB_ENV
 
 # tar-zip binary
-tar -czvf chequera_linux_amd64_v$VERSION.tar.gz -C ./release $(readlink -f ./release/chequera)
+tar -czvf chequera_linux_amd64_$VERSION.tar.gz -C ./release $(readlink -f ./release/chequera)
