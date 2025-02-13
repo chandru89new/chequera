@@ -14,6 +14,18 @@ on:
         description: "Cabal version to install"
         required: true
         default: "3.10.3.0"
+  push:
+    branches:
+      - main
+    inputs:
+      ghc_version:
+        description: "GHC version to install"
+        required: false
+        default: "9.4.8"
+      cabal_version:
+        description: "Cabal version to install"
+        required: false
+        default: "3.10.3.0"
 
 jobs:
   build:
