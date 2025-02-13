@@ -31,7 +31,7 @@ main = do
       putStrLn "I didn't quite understand that. Try `chequera help`."
     Help -> do
       putStrLn helpText
-    Version -> putStrLn $ "chequera " ++ showVersion version
+    Version -> putStrLn $ "chequera " ++ getVersion
     Test pipeling path -> do
       _ <- startService
       files <- findAllDocFiles pipeling path
@@ -63,7 +63,7 @@ main = do
 helpText :: String
 helpText =
   "chequera "
-    ++ showVersion version
+    ++ getVersion
     ++ "\n\n"
     ++ "Usage: chequera <command> [args]\n\
        \Commands:\n\
@@ -140,3 +140,5 @@ testFile pipeling file = do
   return $ case res of
     Left errs -> Left $ map prettyPrintError errs
     Right _ -> Right ()
+
+getVersion = "v" ++ showVersion version
