@@ -22,7 +22,7 @@ make clean-build
 strip $(readlink -f ./release/chequera)
 
 # get version
-VERSION=$(./release/chequera --version)
+VERSION=$(./release/chequera version)
 echo "VERSION=$VERSION" >> $GITHUB_ENV
 
 # tar-zip binary
