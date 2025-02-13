@@ -26,8 +26,7 @@ jobs:
       - name: Install GHCup
         run: |
           brew install ghcup
-          echo "$HOME/.ghcup/bin" >> $GITHUB_PATH
-          source ~/.ghcup/env
+          # Add GHCup to PATH for this and subsequent steps
 
       - name: Install Latest GHC and Cabal
         run: |
@@ -35,6 +34,8 @@ jobs:
           ghcup set ghc ${{ inputs.ghc_version }}
           ghcup install cabal ${{ inputs.cabal_version }}
           ghcup set cabal ${{ inputs.cabal_version }}
+          echo "$HOME/.cabal/bin" >> $GITHUB_PATH
+          echo "$HOME/.ghcup/bin" >> $GITHUB_PATH
 
       - name: Update Cabal Dependencies
         run: |
