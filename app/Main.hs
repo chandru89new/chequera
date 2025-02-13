@@ -7,18 +7,19 @@
 module Main where
 
 import Control.Concurrent.Async (mapConcurrently)
-import Control.Exception (try)
+import Control.Exception (throwIO, try)
 import Control.Monad (foldM, unless)
 import Data.Either (isLeft)
 import Data.List (isInfixOf, sort)
 import Data.Text (pack, splitOn, unpack)
 import Data.Version (showVersion)
 import Exec (clrBlue, clrGreen, clrRed, clrYellow)
+import GHC.IO.Exception ()
 import Paths_chequera (version)
 import QueryExtractor
 import Steampipe
 import System.Environment (getArgs, lookupEnv)
-import System.Exit (ExitCode (ExitFailure, ExitSuccess))
+import System.Exit (ExitCode (ExitFailure, ExitSuccess), exitWith)
 import System.Process (readProcessWithExitCode)
 import Types
 
@@ -34,30 +35,35 @@ main = do
     Version -> putStrLn $ "chequera " ++ getVersion
     Test pipeling path -> do
       _ <- startService
-      files <- findAllDocFiles pipeling path
-      (eCount, sCount, tCount, eFiles) <-
-        foldM
-          ( \(errorCount :: Int, successCount :: Int, totalCount :: Int, errFiles :: [FilePath]) f -> do
-              putStrLn $ "\n" ++ clrBlue "Testing: " ++ f
-              res <- testFile pipeling f
-              case res of
-                Left errs -> do
-                  mapM_ putStrLn errs
-                  pure (errorCount + length errs, successCount, totalCount + 1, f : errFiles)
-                Right _ -> do
-                  putStrLn $ clrGreen "All good!"
-                  pure (errorCount, successCount + 1, totalCount + 1, errFiles)
-          )
-          (0, 0, 0, [])
-          files
-      putStrLn "\n"
-      putStrLn $ clrRed "Errors: " ++ show eCount
-      putStrLn $ clrGreen "Successes: " ++ show sCount
-      putStrLn $ "Total: " ++ show tCount
-      putStrLn "\n"
-      unless (null eFiles) $ do
-        putStrLn $ clrRed "These files have problematic queries: "
-        mapM_ putStrLn eFiles
+      files <- try $ findAllDocFiles pipeling path
+      case files of
+        Left (err :: AppError) -> do
+          putStrLn $ clrRed "Error: " ++ show err
+          exitWith (ExitFailure 1)
+        Right fs -> do
+          (eCount, sCount, tCount, eFiles) <-
+            foldM
+              ( \(errorCount :: Int, successCount :: Int, totalCount :: Int, errFiles :: [FilePath]) f -> do
+                  putStrLn $ "\n" ++ clrBlue "Testing: " ++ f
+                  res <- testFile pipeling f
+                  case res of
+                    Left errs -> do
+                      mapM_ putStrLn errs
+                      pure (errorCount + length errs, successCount, totalCount + 1, f : errFiles)
+                    Right _ -> do
+                      putStrLn $ clrGreen "All good!"
+                      pure (errorCount, successCount + 1, totalCount + 1, errFiles)
+              )
+              (0, 0, 0, [])
+              fs
+          putStrLn "\n"
+          putStrLn $ clrRed "Errors: " ++ show eCount
+          putStrLn $ clrGreen "Successes: " ++ show sCount
+          putStrLn $ "Total: " ++ show tCount
+          putStrLn "\n"
+          unless (null eFiles) $ do
+            putStrLn $ clrRed "These files have problematic queries: "
+            mapM_ putStrLn eFiles
       stopService
 
 helpText :: String
@@ -121,7 +127,7 @@ findAllDocFiles pipeling dir = do
     (ExitSuccess, output, _) -> do
       let files = filter (not . patternInIgnoreList ignores) $ sort $ lines output
       return files
-    (ExitFailure _, _, err) -> error err
+    (ExitFailure _, _, err) -> throwIO $ QueryExtractorError err
  where
   patternInIgnoreList :: [String] -> String -> Bool
   patternInIgnoreList ignorePatterns fileName = any (`isInfixOf` fileName) ignorePatterns
@@ -141,4 +147,5 @@ testFile pipeling file = do
     Left errs -> Left $ map prettyPrintError errs
     Right _ -> Right ()
 
+getVersion :: String
 getVersion = "v" ++ showVersion version
