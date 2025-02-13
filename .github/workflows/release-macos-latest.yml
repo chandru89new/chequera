@@ -26,6 +26,8 @@ jobs:
       - name: Install GHCup
         run: |
           brew install ghcup
+          echo "$HOME/.ghcup/bin" >> $GITHUB_PATH
+          source ~/.ghcup/env
 
       - name: Install Latest GHC and Cabal
         run: |
@@ -71,5 +73,5 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./release/chequera
-          asset_name: chequera
+          asset_name: chequera_darwin_arm64
           asset_content_type: application/octet-stream
