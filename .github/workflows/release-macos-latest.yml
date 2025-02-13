@@ -34,7 +34,6 @@ jobs:
           ghcup set ghc ${{ inputs.ghc_version }}
           ghcup install cabal ${{ inputs.cabal_version }}
           ghcup set cabal ${{ inputs.cabal_version }}
-          echo "$HOME/.cabal/bin" >> $GITHUB_PATH
           echo "$HOME/.ghcup/bin" >> $GITHUB_PATH
 
       - name: Update Cabal Dependencies
@@ -48,8 +47,6 @@ jobs:
       - name: Reduce binary size
         run: |
           strip $(readlink -f ./release/chequera)
-          brew install upx
-          upx $(readlink -f ./release/chequera) --force-macos
 
       - name: Get Version
         id: get_version
