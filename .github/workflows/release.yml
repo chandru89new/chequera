@@ -1,0 +1,82 @@
+name: Build Chequera Binaries
+
+permissions: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      ghc_version:
+        description: "GHC version to install"
+        required: true
+        default: "9.4.8"
+      cabal_version:
+        description: "Cabal version to install"
+        required: true
+        default: "3.10.3.0"
+      version:
+        description: "Chequera version"
+        required: true
+        default: ""
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        arch: [amd64, arm64]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Haskell
+        uses: haskell/actions/setup@v2
+        with:
+          ghc-version: "9.4.7"
+          cabal-version: "3.10.1.0"
+
+      - name: Update package list
+        run: cabal update
+
+      - name: Build project
+        run: make build
+        env:
+          ARCH: ${{ matrix.arch }}
+
+      - name: Install upx
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            sudo apt-get update && sudo apt-get install -y upx-ucl
+          else
+            brew install upx
+          fi
+
+      - name: Optimize binary
+        run: |
+          BINARY=$(readlink -f ./release/chequera)
+          strip "$BINARY"
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            upx --best --lzma --force-macos "$BINARY"
+          else
+            upx --best --lzma "$BINARY"
+          fi
+
+      - name: Package binary
+        run: |
+          BINARY=$(readlink -f ./release/chequera)
+          tar czf chequera-${{ runner.os }}-${{ matrix.arch }}-${{ inputs.version }}.tar.gz -C $(dirname "$BINARY") $(basename "$BINARY")
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: chequera-${{ runner.os }}-${{ matrix.arch }}-${{ inputs.version }}
+          path: "*.tar.gz"
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: github.event_name == 'release'
+        with:
+          files: "*.tar.gz"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
