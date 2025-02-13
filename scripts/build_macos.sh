@@ -20,8 +20,10 @@ make clean-build
 strip $(readlink -f ./release/chequera)
 
 # get version
-VERSION=$(./release/chequera version)
+VERSION=$(./release/chequera version | awk '{print $2}')
 echo "VERSION=$VERSION" >> $GITHUB_ENV
 
 # tar-zip binary
-tar -czvf chequera_darwin_arm64_$VERSION.tar.gz -C ./release $(readlink -f ./release/chequera)
+BINARY=$(readlink ./release/chequera)
+cd $(dirname "$BINARY")
+tar -czvf "$OLDPWD/chequera_darwin_arm64_$VERSION.tar.gz" $(basename "$BINARY")
