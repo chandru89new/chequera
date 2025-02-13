@@ -14,7 +14,6 @@ import Data.List (isInfixOf, sort)
 import Data.Text (pack, splitOn, unpack)
 import Data.Version (showVersion)
 import Exec (clrBlue, clrGreen, clrRed, clrYellow)
-import GHC.IO.Exception ()
 import Paths_chequera (version)
 import QueryExtractor
 import Steampipe
@@ -39,6 +38,7 @@ main = do
       case files of
         Left (err :: AppError) -> do
           putStrLn $ clrRed "Error: " ++ show err
+          _ <- stopService
           exitWith (ExitFailure 1)
         Right fs -> do
           (eCount, sCount, tCount, eFiles) <-
@@ -64,7 +64,8 @@ main = do
           unless (null eFiles) $ do
             putStrLn $ clrRed "These files have problematic queries: "
             mapM_ putStrLn eFiles
-      stopService
+          _ <- stopService
+          exitWith $ if null eFiles then ExitSuccess else ExitFailure 1
 
 helpText :: String
 helpText =
