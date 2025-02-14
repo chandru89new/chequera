@@ -78,24 +78,23 @@ runSteampipeTests path = ExceptT $ try $ do
       throwIO err
     Right (fs, excludes) -> do
       unless (null excludes) $ putStrLn $ clrYellow "Ignoring these files because of ignore flag/pattern: " ++ intercalate ", " excludes
-      (eCount, sCount, tCount, eFiles) <-
+      (eCount, tCount, eFiles) <-
         foldM
-          ( \(errorCount :: Int, successCount :: Int, totalCount :: Int, errFiles :: [FilePath]) f -> do
+          ( \(errorCount :: Int, totalCount :: Int, errFiles :: [FilePath]) f -> do
               putStrLn $ "\n" ++ clrBlue "Testing: " ++ f
               res <- testFile Steampipe f
               case res of
                 Left errs -> do
                   mapM_ putStrLn errs
-                  pure (errorCount + length errs, successCount, totalCount + 1, f : errFiles)
+                  pure (errorCount + length errs, totalCount + 1, f : errFiles)
                 Right _ -> do
                   putStrLn $ clrGreen "All good!"
-                  pure (errorCount, successCount + 1, totalCount + 1, errFiles)
+                  pure (errorCount, totalCount + 1, errFiles)
           )
-          (0, 0, 0, [])
+          (0, 0, [])
           fs
       putStrLn "\n"
       putStrLn $ clrRed "Errors: " ++ show eCount
-      putStrLn $ clrGreen "Successes: " ++ show sCount
       putStrLn $ "Total files chequera'd: " ++ show tCount
       putStrLn "\n"
       unless (null eFiles) $ do
