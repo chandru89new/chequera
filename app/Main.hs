@@ -10,7 +10,7 @@ import Control.Concurrent.Async (mapConcurrently)
 import Control.Exception (throwIO, try)
 import Control.Monad (foldM, unless)
 import Data.Either (isLeft)
-import Data.List (isInfixOf, sort)
+import Data.List (intercalate, isInfixOf, sort)
 import Data.Text (pack, splitOn, unpack)
 import Data.Version (showVersion)
 import Exec (clrBlue, clrGreen, clrRed, clrYellow)
@@ -122,11 +122,12 @@ findAllDocFiles pipeling dir = do
   let ignores = case ignoresString of
         Nothing -> []
         Just s -> map unpack $ splitOn (pack ",") $ pack s
-  unless (null ignores) $ putStrLn $ clrYellow "Ignoring: " ++ show ignores
   res <- readProcessWithExitCode "find" [dir, "-type", "f", "-name", if pipeling == Steampipe then "*.md" else "*.pp"] ""
   case res of
     (ExitSuccess, output, _) -> do
       let files = filter (not . patternInIgnoreList ignores) $ sort $ lines output
+      let excludeFiles = filter (patternInIgnoreList ignores) $ sort $ lines output
+      unless (null excludeFiles) $ putStrLn $ clrYellow "Ignoring these files because of ignore flag/pattern: " ++ intercalate ", " excludeFiles
       return files
     (ExitFailure _, _, err) -> throwIO $ QueryExtractorError err
  where

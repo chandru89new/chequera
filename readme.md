@@ -38,6 +38,6 @@ $ CQ_TIMEOUT=60 chequera test --path ./steampipe-plugin-aws/docs
 
 TODO:
 
-- [ ] release binaries for MacOS and Linux platforms
+- [x] release binaries for MacOS and Linux platforms
 - [ ] update readme to add installation instructions
 - [ ] add support for Powerpipe dashboard files that contain queries
