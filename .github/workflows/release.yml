@@ -14,9 +14,6 @@ on:
         description: "Cabal version to install"
         required: true
         default: "3.10.3.0"
-  push:
-    branches:
-      - main
 
 jobs:
   build:
