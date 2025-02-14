@@ -60,5 +60,5 @@ extractQueriesFromFile pipeling path = do
   content <- readFile path
   case extractQueryFromString pipeling content of
     Left (QueryExtractorError err) -> throwIO (QueryExtractorError err)
-    Left _ -> throwIO UnknownError
+    Left err -> throwIO $ UnknownError (show err)
     Right queries -> return queries

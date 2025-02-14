@@ -7,7 +7,7 @@ data AppError
   | QueryExecError (QueryString, String)
   | ExecError String
   | TimeoutError String
-  | UnknownError
+  | UnknownError String
   deriving (Show)
 
 instance Exception AppError
