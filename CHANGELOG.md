@@ -1,5 +1,9 @@
 # Changelog — Chequera
 
+## 0.2.8
+
+- Show errors when function to stop/start Steampipe service throws.
+
 ## 0.2.7
 
 - Better error-handling so the app won't crash if steampipe service start/stop commands fail.

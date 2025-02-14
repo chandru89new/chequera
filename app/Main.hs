@@ -36,7 +36,9 @@ main = do
     Test _ path -> do
       res <- runExceptT $ runSteampipeTests path
       case res of
-        Left _ -> exitWith $ ExitFailure 1
+        Left err -> do
+          print err
+          exitWith $ ExitFailure 1
         Right _ -> exitSuccess
 
 helpText :: String
@@ -60,7 +62,10 @@ getCommand _ = Invalid
 
 runSteampipeTests :: FilePath -> ExceptT AppError IO ()
 runSteampipeTests path = ExceptT $ try $ do
+  putStrLn "Starting Steampipe service..."
+  _ <- stopService
   _ <- startService
+  putStrLn "Gathering the list of files..."
   files <- try $ findAllDocFiles Steampipe path
   case files of
     Left (err :: AppError) -> do
