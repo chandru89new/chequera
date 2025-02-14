@@ -37,9 +37,11 @@ main = do
       res <- runExceptT $ runSteampipeTests path
       case res of
         Left err -> do
-          print err
+          putStrLn $ prettyPrintError err
           exitWith $ ExitFailure 1
-        Right _ -> exitSuccess
+        Right NoErrors -> exitSuccess
+        Right SomeErrors -> do
+          exitWith $ ExitFailure 1
 
 helpText :: String
 helpText =
@@ -60,7 +62,9 @@ getCommand ("test" : "--path" : p : _) = Test Steampipe p
 getCommand ("version" : _) = Version
 getCommand _ = Invalid
 
-runSteampipeTests :: FilePath -> ExceptT AppError IO ()
+data TestsExitState = SomeErrors | NoErrors
+
+runSteampipeTests :: FilePath -> ExceptT AppError IO TestsExitState
 runSteampipeTests path = ExceptT $ try $ do
   putStrLn "Starting Steampipe service..."
   _ <- stopService
@@ -69,9 +73,9 @@ runSteampipeTests path = ExceptT $ try $ do
   files <- try $ findAllDocFiles Steampipe path
   case files of
     Left (err :: AppError) -> do
-      putStrLn $ prettyPrintError err
-      stopService
-      throwIO $ UnknownError (prettyPrintError err)
+      putStrLn "Stopping Steampipe service..."
+      _ <- stopService
+      throwIO err
     Right (fs, excludes) -> do
       unless (null excludes) $ putStrLn $ clrYellow "Ignoring these files because of ignore flag/pattern: " ++ intercalate ", " excludes
       (eCount, sCount, tCount, eFiles) <-
@@ -97,8 +101,12 @@ runSteampipeTests path = ExceptT $ try $ do
       unless (null eFiles) $ do
         putStrLn $ clrRed "These files have problematic queries: "
         mapM_ putStrLn eFiles
+      putStrLn "Stopping Steampipe service..."
       _ <- stopService
-      unless (null eFiles) $ throwIO $ UnknownError "Some files had errors."
+      return $
+        if null eFiles
+          then NoErrors
+          else SomeErrors
 
 runQueriesFromFile :: Pipeling -> FilePath -> IO (Either [AppError] ())
 runQueriesFromFile pipeling file = do
