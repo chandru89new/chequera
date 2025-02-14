@@ -40,7 +40,8 @@ main = do
           putStrLn $ clrRed "Error: " ++ show err
           _ <- stopService
           exitWith (ExitFailure 1)
-        Right fs -> do
+        Right (fs, excludes) -> do
+          unless (null excludes) $ putStrLn $ clrYellow "Ignoring these files because of ignore flag/pattern: " ++ intercalate ", " excludes
           (eCount, sCount, tCount, eFiles) <-
             foldM
               ( \(errorCount :: Int, successCount :: Int, totalCount :: Int, errFiles :: [FilePath]) f -> do
@@ -57,9 +58,10 @@ main = do
               (0, 0, 0, [])
               fs
           putStrLn "\n"
+          putStrLn $ "Total queries checked: " ++ show (eCount + sCount)
           putStrLn $ clrRed "Errors: " ++ show eCount
           putStrLn $ clrGreen "Successes: " ++ show sCount
-          putStrLn $ "Total: " ++ show tCount
+          putStrLn $ "Total files chequera'd: " ++ show tCount
           putStrLn "\n"
           unless (null eFiles) $ do
             putStrLn $ clrRed "These files have problematic queries: "
@@ -116,7 +118,7 @@ runQueriesFromFile pipeling file = do
   runQ :: QueryString -> IO (Either AppError ())
   runQ (QueryString q) = runQuery q
 
-findAllDocFiles :: Pipeling -> FilePath -> IO [FilePath]
+findAllDocFiles :: Pipeling -> FilePath -> IO ([FilePath], [FilePath])
 findAllDocFiles pipeling dir = do
   ignoresString <- lookupEnv "CQ_IGNORE"
   let ignores = case ignoresString of
@@ -127,8 +129,7 @@ findAllDocFiles pipeling dir = do
     (ExitSuccess, output, _) -> do
       let files = filter (not . patternInIgnoreList ignores) $ sort $ lines output
       let excludeFiles = filter (patternInIgnoreList ignores) $ sort $ lines output
-      unless (null excludeFiles) $ putStrLn $ clrYellow "Ignoring these files because of ignore flag/pattern: " ++ intercalate ", " excludeFiles
-      return files
+      return (files, excludeFiles)
     (ExitFailure _, _, err) -> throwIO $ QueryExtractorError err
  where
   patternInIgnoreList :: [String] -> String -> Bool
