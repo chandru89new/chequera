@@ -1,5 +1,13 @@
 # Changelog — Chequera
 
+## 0.2.10
+
+- Improve query extraction by checking for more error cases.
+
+## 0.2.9
+
+- Remove success count from logs and improve error handling.
+
 ## 0.2.8
 
 - Show errors when function to stop/start Steampipe service throws.
