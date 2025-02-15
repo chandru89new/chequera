@@ -27,10 +27,11 @@ extractQueryFromString pipeling str = fn (Right (False, [], [])) (zip [1 ..] $ l
     | mode = Left $ QueryExtractorError "Reached end of file, but query block seems unterminated."
     | otherwise = Right qs
   fn (Right (mode, acc, qs)) ((n, l) : ls)
-    | mode && isNormalLine pipeling l = fn (Right (mode, acc ++ [l], qs)) ls
-    | mode && isTerminateLine pipeling l = fn (Right (False, [], qs ++ [QueryString (unlines acc)])) ls
-    | mode && isInvalidLine pipeling l ls = Left $ QueryExtractorError $ "Unterminted query block near line " ++ show n ++ "."
     | not mode && isStartLine pipeling l = fn (Right (True, [], qs)) ls
+    | not mode = fn (Right (False, [], qs)) ls
+    | mode && isTerminateLine pipeling l = fn (Right (False, [], qs ++ [QueryString (unlines acc)])) ls
+    | mode && isNormalLine pipeling l = fn (Right (mode, acc ++ [l], qs)) ls
+    | mode && isInvalidLine pipeling l ls = Left $ QueryExtractorError $ "Unterminted query block near line " ++ show n ++ "."
     | otherwise = fn (Right (False, [], qs)) ls
 
   isStartLine :: Pipeling -> String -> Bool
@@ -42,15 +43,17 @@ extractQueryFromString pipeling str = fn (Right (False, [], [])) (zip [1 ..] $ l
   isTerminateLine Powerpipe line = eoqEnd line
 
   isNormalLine :: Pipeling -> String -> Bool
-  isNormalLine Steampipe line = line /= "```" && not (sqlPrefix `isPrefixOf` line)
+  isNormalLine Steampipe line = line /= "```" && not (sqlPrefix `isPrefixOf` line) && not ("#" `isPrefixOf` line)
   isNormalLine Powerpipe line = not (eoqStart line) && not (eoqEnd line)
 
   isInvalidLine :: Pipeling -> String -> [(Int, String)] -> Bool
   isInvalidLine Steampipe line ls
+    | "#" `isPrefixOf` line = True
     | sqlPrefix `isPrefixOf` line = True
     | null ls = True
     | otherwise = False
   isInvalidLine Powerpipe line ls
+    | "#" `isPrefixOf` line = True
     | eoqStart line = True
     | null ls = True
     | otherwise = False
