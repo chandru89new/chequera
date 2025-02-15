@@ -1,5 +1,9 @@
 # Changelog — Chequera
 
+## 0.2.11
+
+- Refactor app to be even more safe.
+
 ## 0.2.10
 
 - Improve query extraction by checking for more error cases.

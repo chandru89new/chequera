@@ -73,6 +73,7 @@ runSteampipeTests path = do
   unless (null excludes) $ liftIO $ putStrLn $ clrYellow "Ignoring these files because of ignore flag/pattern: " ++ intercalate ", " excludes
   (errCount, errFiles) <- liftIO $ foldM fn (0, []) fs
   liftIO $ unless (errCount == 0) $ putStrLn $ clrRed "\nErrors: " ++ show errCount
+  liftIO $ putStrLn $ "Total files checked: " ++ show (length fs)
   liftIO $ unless (null errFiles) $ do
     putStrLn $ clrRed "There are errors in these files:"
     mapM_ putStrLn errFiles
