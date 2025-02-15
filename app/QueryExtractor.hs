@@ -2,7 +2,7 @@
 
 module QueryExtractor where
 
-import Control.Exception (throwIO)
+import Control.Monad.Trans.Except (ExceptT (ExceptT))
 import Data.List (isPrefixOf)
 import Types
 
@@ -58,10 +58,10 @@ extractQueryFromString pipeling str = fn (Right (False, [], [])) (zip [1 ..] $ l
     | null ls = True
     | otherwise = False
 
-extractQueriesFromFile :: Pipeling -> FilePath -> IO [QueryString]
-extractQueriesFromFile pipeling path = do
+extractQueriesFromFile :: Pipeling -> FilePath -> AppM [QueryString]
+extractQueriesFromFile pipeling path = ExceptT $ do
   content <- readFile path
-  case extractQueryFromString pipeling content of
-    Left (QueryExtractorError err) -> throwIO (QueryExtractorError err)
-    Left err -> throwIO $ UnknownError (show err)
+  return $ case extractQueryFromString pipeling content of
+    Left (QueryExtractorError err) -> Left [QueryExtractorError err]
+    Left err -> Left [UnknownError (show err)]
     Right queries -> return queries
