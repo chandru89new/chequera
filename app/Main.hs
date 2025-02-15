@@ -65,22 +65,27 @@ getCommand _ = Invalid
 
 runSteampipeTests :: FilePath -> AppM TestExitState
 runSteampipeTests path = do
-  liftIO $ putStrLn "Starting Steampipe service..."
-  stopService
-  startService
   liftIO $ putStrLn "Gathering the list of files..."
   (fs, excludes) <- findAllDocFiles Steampipe path
   unless (null excludes) $ liftIO $ putStrLn $ clrYellow "Ignoring these files because of ignore flag/pattern: " ++ intercalate ", " excludes
-  (errCount, errFiles) <- liftIO $ foldM fn (0, []) fs
-  liftIO $ unless (errCount == 0) $ putStrLn $ clrRed "\nErrors: " ++ show errCount
-  liftIO $ putStrLn $ "Total files checked: " ++ show (length fs)
-  liftIO $ unless (null errFiles) $ do
-    putStrLn $ clrRed "There are errors in these files:"
-    mapM_ putStrLn errFiles
-  stopService
-  if null errFiles
-    then return TestExitSuccess
-    else return TestExitFailure
+  case fs of
+    [] -> do
+      liftIO $ putStrLn $ clrYellow "No files to check."
+      return TestExitSuccess
+    _ -> do
+      liftIO $ putStrLn "Starting Steampipe service..."
+      stopService
+      startService
+      (errCount, errFiles) <- liftIO $ foldM fn (0, []) fs
+      liftIO $ unless (errCount == 0) $ putStrLn $ clrRed "\nErrors: " ++ show errCount
+      liftIO $ putStrLn $ "Total files checked: " ++ show (length fs)
+      liftIO $ unless (null errFiles) $ do
+        putStrLn $ clrRed "There are errors in these files:"
+        mapM_ putStrLn errFiles
+      stopService
+      if null errFiles
+        then return TestExitSuccess
+        else return TestExitFailure
  where
   fn :: (Int, [FilePath]) -> FilePath -> IO (Int, [FilePath])
   fn (eCount, eFiles) f = do
