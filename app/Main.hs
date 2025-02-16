@@ -87,10 +87,15 @@ runSteampipeTests path = do
           )
           []
           fs
-      liftIO $ putStrLn $ "Total files checked: " ++ show (length fs)
-      liftIO $ unless (null errFiles) $ do
-        putStrLn $ clrRed "There are errors in these files:"
-        mapM_ putStrLn errFiles
+      liftIO $ do
+        putStrLn "------------"
+        putStrLn $ "Total files checked: " ++ show (length fs)
+        if not . null $ errFiles
+          then do
+            putStrLn $ clrRed "There are errors in these files:"
+            mapM_ putStrLn errFiles
+          else
+            putStrLn $ clrGreen "No errors!"
       stopService
       if null errFiles
         then return TestExitSuccess
@@ -172,7 +177,7 @@ showAppError :: AppError -> String
 showAppError err = case err of
   QueryExtractionError msg -> clrRed "Error when trying to extract queries: " ++ msg
   ExecError e -> clrRed "Error executing command: " ++ e
-  TimeoutError cmd -> clrRed "Command timed out:" ++ cmd
+  TimeoutError cmd -> clrRed "Command timed out: " ++ cmd
   InvalidPath e -> clrRed "Invalid path: " ++ e
   UnknownError e -> clrRed "Error:" ++ e
 

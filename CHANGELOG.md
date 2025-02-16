@@ -1,5 +1,9 @@
 # Changelog — Chequera
 
+## 0.4.2
+
+- Improvements to logging.
+
 ## 0.4.0
 
 - Refactor.
