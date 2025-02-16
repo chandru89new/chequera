@@ -18,20 +18,20 @@ eoqStart str = (==) (unwords . words $ str) "sql = <<-EOQ"
 eoqEnd :: String -> Bool
 eoqEnd str = (==) (unwords . words $ str) "EOQ" && not (eoqStart str)
 
-extractQueryFromString :: Pipeling -> String -> Either AppError [QueryString]
+extractQueryFromString :: Pipeling -> String -> Either FileTestError [QueryString]
 extractQueryFromString pipeling str = fn (Right (False, [], [])) (zip [1 ..] $ lines str)
  where
-  fn :: Either AppError (Bool, [String], [QueryString]) -> [(Int, String)] -> Either AppError [QueryString]
+  fn :: Either FileTestError (Bool, [String], [QueryString]) -> [(Int, String)] -> Either FileTestError [QueryString]
   fn (Left err) _ = Left err
   fn (Right (mode, _, qs)) []
-    | mode = Left $ QueryExtractionError "Reached end of file, but query block seems unterminated."
+    | mode = Left $ ParseError' "Reached end of file, but query block seems unterminated."
     | otherwise = Right qs
   fn (Right (mode, acc, qs)) ((n, l) : ls)
     | not mode && isStartLine pipeling l = fn (Right (True, [], qs)) ls
     | not mode = fn (Right (False, [], qs)) ls
     | mode && isTerminateLine pipeling l = fn (Right (False, [], qs ++ [QueryString (unlines acc)])) ls
     | mode && isNormalLine pipeling l = fn (Right (mode, acc ++ [l], qs)) ls
-    | mode && isInvalidLine pipeling l ls = Left $ QueryExtractionError $ "Unterminted query block near line " ++ show n ++ "."
+    | mode && isInvalidLine pipeling l ls = Left $ ParseError' $ "Unterminted query block near line " ++ show n ++ "."
     | otherwise = fn (Right (False, [], qs)) ls
 
   isStartLine :: Pipeling -> String -> Bool
@@ -58,7 +58,7 @@ extractQueryFromString pipeling str = fn (Right (False, [], [])) (zip [1 ..] $ l
     | null ls = True
     | otherwise = False
 
-extractQueriesFromFile :: Pipeling -> FilePath -> AppM [QueryString]
+extractQueriesFromFile :: Pipeling -> FilePath -> FileTestM [QueryString]
 extractQueriesFromFile pipeling path = ExceptT $ do
   content <- readFile path
   return $ extractQueryFromString pipeling content

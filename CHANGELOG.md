@@ -1,5 +1,9 @@
 # Changelog — Chequera
 
+## 0.5.0
+
+- Another revamp to use better error collection logic.
+
 ## 0.4.2
 
 - Improvements to logging.

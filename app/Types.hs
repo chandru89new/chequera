@@ -29,16 +29,23 @@ data Command
 
 data Pipeling = Steampipe | Powerpipe deriving (Eq, Show)
 
-type AppM' e a = ExceptT e IO a
-type AppM a = AppM' AppError a
+-- this is the overall monad wrapping the app
+type AppM a = ExceptT AppError IO a
 
 runAppM :: AppM a -> IO (Either AppError a)
 runAppM = runExceptT
 
 data TestExitState = TestExitSuccess | TestExitFailure deriving (Show)
 
-data FileTestResult
-  = ParseError String
-  | QueryExecutionErrors [(QueryString, QueryExecError')]
-  | NoErrors
+-- this one here helps us run tests in a file and collect the results
+type FileTestM a = ExceptT FileTestError IO a
+
+runFileTestM :: FileTestM a -> IO (Either FileTestError a)
+runFileTestM = runExceptT
+
+data FileTestError
+  = ParseError' String
+  | QueryExecError [(QueryString, QueryExecError')]
   deriving (Show)
+
+instance Exception FileTestError

@@ -11,8 +11,7 @@ import Control.Concurrent.Async (mapConcurrently)
 import Control.Monad (foldM, unless)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Except (ExceptT (ExceptT))
-import Data.Either (isRight)
-import Data.List (foldl', intercalate, isInfixOf, sort)
+import Data.List (intercalate, isInfixOf, sort)
 import Data.Text (pack, splitOn, unpack)
 import Data.Version (showVersion)
 import Exec (clrBlue, clrGreen, clrRed, clrYellow)
@@ -64,98 +63,6 @@ getCommand ("test" : "--path" : p : _) = Test Steampipe p
 getCommand ("version" : _) = Version
 getCommand _ = Invalid
 
-runSteampipeTests :: FilePath -> AppM TestExitState
-runSteampipeTests path = do
-  liftIO $ putStrLn "Gathering the list of files..."
-  (fs, excludes) <- findAllDocFiles Steampipe path
-  unless (null excludes) $ liftIO $ putStrLn $ clrYellow "Ignoring these files because of ignore flag/pattern: " ++ intercalate ", " excludes
-  case fs of
-    [] -> do
-      liftIO $ putStrLn $ clrYellow "No files to check."
-      return TestExitSuccess
-    _ -> do
-      liftIO $ putStrLn "Starting Steampipe service..."
-      stopService -- we stop any existing service. otherwise `startService` throws an error.
-      startService
-      errFiles <-
-        foldM
-          ( \acc f -> do
-              res <- testFile f
-              pure $ case res of
-                Nothing -> acc
-                Just f' -> f' : acc
-          )
-          []
-          fs
-      liftIO $ do
-        putStrLn "------------"
-        putStrLn $ "Total files checked: " ++ show (length fs)
-        if not . null $ errFiles
-          then do
-            putStrLn $ clrRed "There are errors in these files:"
-            mapM_ putStrLn errFiles
-          else
-            putStrLn $ clrGreen "No errors!"
-      stopService
-      if null errFiles
-        then return TestExitSuccess
-        else return TestExitFailure
- where
-  testFile :: FilePath -> AppM (Maybe FilePath)
-  testFile f = do
-    liftIO $ putStrLn $ "\n" ++ clrBlue "Testing: " ++ f
-    ftr <- runQueriesFromFile Steampipe f
-    liftIO $ case ftr of
-      NoErrors -> do
-        putStrLn $ clrGreen "All good."
-        pure Nothing
-      QueryExecutionErrors errs -> do
-        mapM_
-          ( \(QueryString q, err) ->
-              case err of
-                InvalidQuery e -> do
-                  putStr $ clrRed "Invalid query: " ++ q
-                  putStrLn $ clrYellow "Reason: " ++ e
-                UnknownQueryError e -> putStrLn $ clrRed "Unknown query error: " ++ q ++ "\n" ++ e
-                QueryTimeout -> putStrLn $ clrRed "Query timed out: " ++ q
-          )
-          errs
-        pure (Just f)
-      ParseError e -> do
-        putStrLn $ clrRed "Parsing error: " ++ e
-        pure (Just f)
-
-runQueriesFromFile :: Pipeling -> FilePath -> AppM FileTestResult
-runQueriesFromFile pipeling file = ExceptT $ do
-  queries <- runAppM $ extractQueriesFromFile pipeling file
-  case queries of
-    Right qs -> do
-      qres <-
-        mapConcurrently
-          ( \q -> do
-              r <- runQuery q
-              pure (q, r)
-          )
-          qs
-      let onlyErrs = filter (\(_, res) -> not (isRight res)) qres
-      if null onlyErrs
-        then pure . Right $ NoErrors
-        else
-          pure
-            . Right
-            . QueryExecutionErrors
-            . reverse
-            . foldl'
-              ( \acc (q, res) ->
-                  case res of
-                    Left err -> (q, err) : acc
-                    _ -> acc
-              )
-              []
-            $ onlyErrs
-    Left (QueryExtractionError err) -> pure . Right $ ParseError err
-    Left err -> pure . Left $ err
-
 findAllDocFiles :: Pipeling -> FilePath -> AppM ([FilePath], [FilePath])
 findAllDocFiles pipeling dir = ExceptT $ do
   ignoresString <- lookupEnv "CQ_IGNORE"
@@ -183,3 +90,86 @@ showAppError err = case err of
 
 getVersion :: String
 getVersion = "v" ++ showVersion version
+
+testFile :: Pipeling -> FilePath -> FileTestM ()
+testFile pipeling file = do
+  liftIO $ putStrLn $ "\n" ++ clrBlue "Testing: " ++ file
+  queries <- extractQueriesFromFile pipeling file
+  res <- liftIO $ mapConcurrently testQuery queries
+  let errs = concatErrors res
+  ExceptT $
+    pure $
+      if null errs
+        then Right ()
+        else Left (QueryExecError errs)
+ where
+  testQuery :: QueryString -> IO (QueryString, Maybe QueryExecError')
+  testQuery qs = do
+    r <- runQuery qs
+    pure $ case r of
+      Left err -> (qs, Just err)
+      Right _ -> (qs, Nothing)
+
+  concatErrors :: [(QueryString, Maybe QueryExecError')] -> [(QueryString, QueryExecError')]
+  concatErrors =
+    foldl
+      ( \acc (qs, merr) -> case merr of
+          Just err -> (qs, err) : acc
+          Nothing -> acc
+      )
+      []
+
+showFileTestError :: FileTestError -> String
+showFileTestError err = case err of
+  ParseError' e -> clrRed $ "Parsing error: " ++ e
+  QueryExecError errs ->
+    intercalate "\n" $
+      map
+        ( \(QueryString qs, e') ->
+            case e' of
+              QueryTimeout -> clrRed "Timed out: " ++ qs
+              InvalidQuery e -> clrRed "Invalid query: " ++ qs ++ clrYellow "Reason: " ++ e
+              UnknownQueryError e -> clrRed "Unknown query error: " ++ qs ++ "\n" ++ e
+        )
+        errs
+
+runSteampipeTests :: FilePath -> AppM TestExitState
+runSteampipeTests path = do
+  liftIO $ putStrLn "Gathering the list of files..."
+  (fs, excludes) <- findAllDocFiles Steampipe path
+  unless (null excludes) $ liftIO $ putStrLn $ clrYellow "Ignoring these files because of ignore flag/pattern: " ++ intercalate ", " excludes
+  case fs of
+    [] -> do
+      liftIO $ putStrLn $ clrYellow "No files to check."
+      return TestExitSuccess
+    _ -> do
+      liftIO $ putStrLn "Starting Steampipe service..."
+      stopService -- we stop any existing service. otherwise `startService` throws an error.
+      startService
+      errFiles <-
+        foldM
+          ( \acc f -> do
+              res <- liftIO $ runFileTestM $ testFile Steampipe f
+              liftIO $ case res of
+                Left err -> do
+                  putStrLn $ showFileTestError err
+                  pure (f : acc)
+                Right () -> do
+                  putStrLn $ clrGreen "All good!"
+                  pure acc
+          )
+          []
+          fs
+      liftIO $ do
+        putStrLn "------------"
+        putStrLn $ "Total files checked: " ++ show (length fs)
+        if not . null $ errFiles
+          then do
+            putStrLn $ clrRed "There are errors in these files:"
+            mapM_ putStrLn errFiles
+          else
+            putStrLn $ clrGreen "No errors!"
+      stopService
+      if null errFiles
+        then return TestExitSuccess
+        else return TestExitFailure
