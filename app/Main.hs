@@ -11,7 +11,8 @@ import Control.Concurrent.Async (mapConcurrently)
 import Control.Monad (foldM, unless)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Except (ExceptT (ExceptT))
-import Data.List (intercalate, isInfixOf, sort)
+import Data.Either (isRight)
+import Data.List (foldl', intercalate, isInfixOf, sort)
 import Data.Text (pack, splitOn, unpack)
 import Data.Version (showVersion)
 import Exec (clrBlue, clrGreen, clrRed, clrYellow)
@@ -37,7 +38,7 @@ main = do
       res <- runAppM $ runSteampipeTests path
       case res of
         Left err -> do
-          _ <- putStrLn $ intercalate "\n" $ map prettyPrintError err
+          _ <- putStrLn $ showAppError err
           exitWith $ ExitFailure 1
         Right TestExitFailure -> do
           exitWith $ ExitFailure 1
@@ -74,10 +75,9 @@ runSteampipeTests path = do
       return TestExitSuccess
     _ -> do
       liftIO $ putStrLn "Starting Steampipe service..."
-      stopService
+      stopService -- we stop any existing service. otherwise `startService` throws an error.
       startService
-      (errCount, errFiles) <- liftIO $ foldM fn (0, []) fs
-      liftIO $ unless (errCount == 0) $ putStrLn $ clrRed "\nErrors: " ++ show errCount
+      errFiles <- foldM testAndCollect [] fs
       liftIO $ putStrLn $ "Total files checked: " ++ show (length fs)
       liftIO $ unless (null errFiles) $ do
         putStrLn $ clrRed "There are errors in these files:"
@@ -87,60 +87,84 @@ runSteampipeTests path = do
         then return TestExitSuccess
         else return TestExitFailure
  where
-  fn :: (Int, [FilePath]) -> FilePath -> IO (Int, [FilePath])
-  fn (eCount, eFiles) f = do
-    putStrLn $ "\n" ++ clrBlue "Testing: " ++ f
-    res <- runAppM $ runQueriesFromFile Steampipe f
-    case res of
-      Left errs -> do
-        _ <- putStrLn $ intercalate "\n" $ map prettyPrintError errs
-        pure (eCount + length errs, f : eFiles)
-      Right _ -> do
-        putStrLn $ clrGreen "All good!"
-        pure (eCount, eFiles)
+  testAndCollect :: [FilePath] -> FilePath -> AppM [FilePath]
+  testAndCollect errFs f = do
+    liftIO $ putStrLn $ "\n" ++ clrBlue "Testing: " ++ f
+    ftr <- runQueriesFromFile Steampipe f
+    liftIO $ case ftr of
+      NoErrors -> do
+        putStrLn $ clrGreen "All good."
+        pure errFs
+      QueryExecutionErrors errs -> do
+        mapM_
+          ( \(QueryString q, err) ->
+              case err of
+                InvalidQuery e -> do
+                  putStr $ clrRed "Invalid query: " ++ q
+                  putStrLn $ clrYellow "Reason: " ++ e
+                UnknownQueryError e -> putStrLn $ clrRed "Unknown query error: " ++ q ++ "\n" ++ e
+                QueryTimeout -> putStrLn $ clrRed "Query timed out: " ++ q
+          )
+          errs
+        pure $ f : errFs
+      ParseError e -> do
+        putStrLn $ clrRed "Parsing error: " ++ e
+        pure $ f : errFs
 
-runQueriesFromFile :: Pipeling -> FilePath -> AppM ()
-runQueriesFromFile pipeling file = do
-  queries <- extractQueriesFromFile pipeling file
-  ExceptT $ concatErrors $ mapConcurrently (runAppM . runQ) queries
- where
-  concatErrors :: IO [Either [AppError] ()] -> IO (Either [AppError] ())
-  concatErrors ios = do
-    res <- ios
-    foldM fn (Right ()) res
-   where
-    fn :: Either [AppError] () -> Either [AppError] () -> IO (Either [AppError] ())
-    fn (Left errs) (Left errs') = pure $ Left $ errs ++ errs'
-    fn (Left errs) _ = pure $ Left errs
-    fn _ (Left errs) = pure $ Left errs
-    fn _ _ = pure $ Right ()
-
-  runQ :: QueryString -> AppM ()
-  runQ (QueryString q) = runQuery q
+runQueriesFromFile :: Pipeling -> FilePath -> AppM FileTestResult
+runQueriesFromFile pipeling file = ExceptT $ do
+  queries <- runAppM $ extractQueriesFromFile pipeling file
+  case queries of
+    Right qs -> do
+      qres <-
+        mapConcurrently
+          ( \q -> do
+              r <- runQuery q
+              pure (q, r)
+          )
+          qs
+      let onlyErrs = filter (\(_, res) -> not (isRight res)) qres
+      if null onlyErrs
+        then pure . Right $ NoErrors
+        else
+          pure
+            . Right
+            . QueryExecutionErrors
+            . reverse
+            . foldl'
+              ( \acc (q, res) ->
+                  case res of
+                    Left err -> (q, err) : acc
+                    _ -> acc
+              )
+              []
+            $ onlyErrs
+    Left (QueryExtractionError err) -> pure . Right $ ParseError err
+    Left err -> pure . Left $ err
 
 findAllDocFiles :: Pipeling -> FilePath -> AppM ([FilePath], [FilePath])
-findAllDocFiles pipeling dir = do
-  ignoresString <- liftIO $ lookupEnv "CQ_IGNORE"
+findAllDocFiles pipeling dir = ExceptT $ do
+  ignoresString <- lookupEnv "CQ_IGNORE"
   let ignores = case ignoresString of
         Nothing -> []
         Just s -> map unpack $ splitOn (pack ",") $ pack s
-  res <- liftIO $ readProcessWithExitCode "find" [dir, "-type", "f", "-name", if pipeling == Steampipe then "*.md" else "*.pp"] ""
-  ExceptT $ return $ case res of
+  res <- readProcessWithExitCode "find" [dir, "-type", "f", "-name", if pipeling == Steampipe then "*.md" else "*.pp"] ""
+  return $ case res of
     (ExitSuccess, output, _) ->
       let files = filter (not . patternInIgnoreList ignores) $ sort $ lines output
           excludeFiles = filter (patternInIgnoreList ignores) $ sort $ lines output
        in Right (files, excludeFiles)
-    (ExitFailure _, _, err) -> Left [QueryExtractorError err]
+    (ExitFailure _, _, err) -> Left (InvalidPath err)
  where
   patternInIgnoreList :: [String] -> String -> Bool
   patternInIgnoreList ignorePatterns fileName = any (`isInfixOf` fileName) ignorePatterns
 
-prettyPrintError :: AppError -> String
-prettyPrintError err = case err of
-  QueryExtractorError msg -> clrRed "Error when trying to extract queries: " ++ msg
-  QueryExecError (QueryString q, e) -> clrRed "Error in SQL query: " ++ q ++ "Reason: " ++ e
+showAppError :: AppError -> String
+showAppError err = case err of
+  QueryExtractionError msg -> clrRed "Error when trying to extract queries: " ++ msg
   ExecError e -> clrRed "Error executing command: " ++ e
-  TimeoutError query -> clrRed "Timeout in query: " ++ query
+  TimeoutError cmd -> clrRed "Command timed out:" ++ cmd
+  InvalidPath e -> clrRed "Invalid path: " ++ e
   UnknownError e -> clrRed "Error:" ++ e
 
 getVersion :: String

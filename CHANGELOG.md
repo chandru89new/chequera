@@ -1,5 +1,9 @@
 # Changelog — Chequera
 
+## 0.4.0
+
+- Refactor.
+
 ## 0.3.0
 
 - Only start Steampipe if there are files to be checked in the path, also accounting for ignored file patterns.

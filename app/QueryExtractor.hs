@@ -24,14 +24,14 @@ extractQueryFromString pipeling str = fn (Right (False, [], [])) (zip [1 ..] $ l
   fn :: Either AppError (Bool, [String], [QueryString]) -> [(Int, String)] -> Either AppError [QueryString]
   fn (Left err) _ = Left err
   fn (Right (mode, _, qs)) []
-    | mode = Left $ QueryExtractorError "Reached end of file, but query block seems unterminated."
+    | mode = Left $ QueryExtractionError "Reached end of file, but query block seems unterminated."
     | otherwise = Right qs
   fn (Right (mode, acc, qs)) ((n, l) : ls)
     | not mode && isStartLine pipeling l = fn (Right (True, [], qs)) ls
     | not mode = fn (Right (False, [], qs)) ls
     | mode && isTerminateLine pipeling l = fn (Right (False, [], qs ++ [QueryString (unlines acc)])) ls
     | mode && isNormalLine pipeling l = fn (Right (mode, acc ++ [l], qs)) ls
-    | mode && isInvalidLine pipeling l ls = Left $ QueryExtractorError $ "Unterminted query block near line " ++ show n ++ "."
+    | mode && isInvalidLine pipeling l ls = Left $ QueryExtractionError $ "Unterminted query block near line " ++ show n ++ "."
     | otherwise = fn (Right (False, [], qs)) ls
 
   isStartLine :: Pipeling -> String -> Bool
@@ -61,7 +61,4 @@ extractQueryFromString pipeling str = fn (Right (False, [], [])) (zip [1 ..] $ l
 extractQueriesFromFile :: Pipeling -> FilePath -> AppM [QueryString]
 extractQueriesFromFile pipeling path = ExceptT $ do
   content <- readFile path
-  return $ case extractQueryFromString pipeling content of
-    Left (QueryExtractorError err) -> Left [QueryExtractorError err]
-    Left err -> Left [UnknownError (show err)]
-    Right queries -> return queries
+  return $ extractQueryFromString pipeling content

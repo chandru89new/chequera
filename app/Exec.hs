@@ -22,8 +22,8 @@ exec' cmd opts = ExceptT $ do
   res <- timeout timeoutSeconds $ readProcessWithExitCode cmd opts ""
   return $ case res of
     Just (ExitSuccess, _, _) -> Right ()
-    Just (ExitFailure _, _, err) -> Left [ExecError err]
-    Nothing -> Left [TimeoutError (unwords (cmd : opts))]
+    Just (ExitFailure _, _, err) -> Left $ ExecError err
+    Nothing -> Left $ TimeoutError (unwords (cmd : opts))
 
 clrRed :: String -> String
 clrRed s = "\x1b[31m" ++ s ++ "\x1b[0m"

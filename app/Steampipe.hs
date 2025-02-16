@@ -2,19 +2,19 @@
 
 module Steampipe where
 
-import Control.Monad.Trans.Except (ExceptT (ExceptT))
 import Exec (exec')
-import Types (AppError (..), AppM, QueryString (QueryString), runAppM)
+import Types (AppError (..), AppM, QueryExecError' (..), QueryString (..), runAppM)
 
 startService :: AppM ()
 startService = exec' "steampipe" (words "service start")
 
-runQuery :: String -> AppM ()
-runQuery query = ExceptT $ do
+runQuery :: QueryString -> IO (Either QueryExecError' ())
+runQuery (QueryString query) = do
   res <- runAppM $ exec' "steampipe" ["query", query]
   pure $ case res of
-    Left [ExecError e] -> Left [QueryExecError (QueryString query, e)]
-    Left e -> Left e
+    Left (ExecError e) -> Left $ InvalidQuery e
+    Left (TimeoutError _) -> Left QueryTimeout
+    Left e -> Left $ UnknownQueryError (show e)
     _ -> Right ()
 
 stopService :: AppM ()
