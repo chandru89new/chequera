@@ -36,3 +36,12 @@ clrBlue s = "\x1b[34m" ++ s ++ "\x1b[0m"
 
 clrYellow :: String -> String
 clrYellow s = "\x1b[33m" ++ s ++ "\x1b[0m"
+
+logError :: [Char] -> [Char]
+logError str = clrRed "[ERROR]: " ++ str
+logWarning :: [Char] -> [Char]
+logWarning str = clrYellow "[WARNING]: " ++ str
+logSuccess :: [Char] -> [Char]
+logSuccess str = clrGreen "[SUCCESS]: " ++ str
+logInfo :: [Char] -> [Char]
+logInfo str = clrBlue "[INFO]: " ++ str

@@ -14,7 +14,7 @@ import Control.Monad.Trans.Except (ExceptT (ExceptT))
 import Data.List (intercalate, isInfixOf, sort)
 import Data.Text (pack, splitOn, unpack)
 import Data.Version (showVersion)
-import Exec (clrBlue, clrGreen, clrRed, clrYellow)
+import Exec (logError, logInfo, logSuccess, logWarning)
 import Paths_chequera (version)
 import QueryExtractor
 import Steampipe
@@ -82,18 +82,18 @@ findAllDocFiles pipeling dir = ExceptT $ do
 
 showAppError :: AppError -> String
 showAppError err = case err of
-  QueryExtractionError msg -> clrRed "Error when trying to extract queries: " ++ msg
-  ExecError e -> clrRed "Error executing command: " ++ e
-  TimeoutError cmd -> clrRed "Command timed out: " ++ cmd
-  InvalidPath e -> clrRed "Invalid path: " ++ e
-  UnknownError e -> clrRed "Error:" ++ e
+  QueryExtractionError msg -> logError msg
+  ExecError e -> logError e
+  TimeoutError cmd -> logError ("Timed out: " ++ (unwords . words) cmd)
+  InvalidPath e -> logError ("Invalid path: " ++ e)
+  UnknownError e -> logError e
 
 getVersion :: String
 getVersion = "v" ++ showVersion version
 
 testFile :: Pipeling -> FilePath -> FileTestM ()
 testFile pipeling file = do
-  liftIO $ putStrLn $ "\n" ++ clrBlue "Testing: " ++ file
+  liftIO $ putStrLn $ "\n" ++ logInfo ("Checking: " ++ file)
   queries <- extractQueriesFromFile pipeling file
   res <- liftIO $ mapConcurrently testQuery queries
   let errs = concatErrors res
@@ -121,15 +121,16 @@ testFile pipeling file = do
 
 showFileTestError :: FileTestError -> String
 showFileTestError err = case err of
-  ParseError' e -> clrRed $ "Parsing error: " ++ e
+  ParseError' e -> logError e
   QueryExecError errs ->
     intercalate "\n" $
       map
         ( \(QueryString qs, e') ->
-            case e' of
-              QueryTimeout -> clrRed "Timed out: " ++ qs
-              InvalidQuery e -> clrRed "Invalid query: " ++ qs ++ clrYellow "Reason: " ++ e
-              UnknownQueryError e -> clrRed "Unknown query error: " ++ qs ++ "\n" ++ e
+            let qstr = (unwords . words) qs
+             in case e' of
+                  QueryTimeout -> logError qstr ++ "\n" ++ logError "Query timed out."
+                  InvalidQuery e -> logError qstr ++ "\n" ++ logError e
+                  UnknownQueryError e -> logError qstr ++ "\n" ++ logError e
         )
         errs
 
@@ -137,13 +138,13 @@ runSteampipeTests :: FilePath -> AppM TestExitState
 runSteampipeTests path = do
   liftIO $ putStrLn "Gathering the list of files..."
   (fs, excludes) <- findAllDocFiles Steampipe path
-  unless (null excludes) $ liftIO $ putStrLn $ clrYellow "Ignoring these files because of ignore flag/pattern: " ++ intercalate ", " excludes
+  unless (null excludes) $ liftIO $ putStrLn $ logWarning "Ignoring these files because of ignore flag/pattern: " ++ intercalate ", " excludes
   case fs of
     [] -> do
-      liftIO $ putStrLn $ clrYellow "No files to check."
+      liftIO $ putStrLn $ logInfo "No files to check."
       return TestExitSuccess
     _ -> do
-      liftIO $ putStrLn "Starting Steampipe service..."
+      liftIO $ putStrLn $ logInfo "Starting Steampipe service..."
       stopService -- we stop any existing service. otherwise `startService` throws an error.
       startService
       errFiles <-
@@ -155,20 +156,20 @@ runSteampipeTests path = do
                   putStrLn $ showFileTestError err
                   pure (f : acc)
                 Right () -> do
-                  putStrLn $ clrGreen "All good!"
+                  putStrLn $ logSuccess "All good!"
                   pure acc
           )
           []
           fs
       liftIO $ do
         putStrLn "------------"
-        putStrLn $ "Total files checked: " ++ show (length fs)
+        putStrLn $ logInfo "Total files checked: " ++ show (length fs)
         if not . null $ errFiles
           then do
-            putStrLn $ clrRed "There are errors in these files:"
+            putStrLn $ logWarning "There are errors in these files:"
             mapM_ putStrLn errFiles
           else
-            putStrLn $ clrGreen "No errors!"
+            putStrLn $ logSuccess "No errors!"
       stopService
       if null errFiles
         then return TestExitSuccess
