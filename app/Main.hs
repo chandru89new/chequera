@@ -77,7 +77,16 @@ runSteampipeTests path = do
       liftIO $ putStrLn "Starting Steampipe service..."
       stopService -- we stop any existing service. otherwise `startService` throws an error.
       startService
-      errFiles <- foldM testAndCollect [] fs
+      errFiles <-
+        foldM
+          ( \acc f -> do
+              res <- testFile f
+              pure $ case res of
+                Nothing -> acc
+                Just f' -> f' : acc
+          )
+          []
+          fs
       liftIO $ putStrLn $ "Total files checked: " ++ show (length fs)
       liftIO $ unless (null errFiles) $ do
         putStrLn $ clrRed "There are errors in these files:"
@@ -87,14 +96,14 @@ runSteampipeTests path = do
         then return TestExitSuccess
         else return TestExitFailure
  where
-  testAndCollect :: [FilePath] -> FilePath -> AppM [FilePath]
-  testAndCollect errFs f = do
+  testFile :: FilePath -> AppM (Maybe FilePath)
+  testFile f = do
     liftIO $ putStrLn $ "\n" ++ clrBlue "Testing: " ++ f
     ftr <- runQueriesFromFile Steampipe f
     liftIO $ case ftr of
       NoErrors -> do
         putStrLn $ clrGreen "All good."
-        pure errFs
+        pure Nothing
       QueryExecutionErrors errs -> do
         mapM_
           ( \(QueryString q, err) ->
@@ -106,10 +115,10 @@ runSteampipeTests path = do
                 QueryTimeout -> putStrLn $ clrRed "Query timed out: " ++ q
           )
           errs
-        pure $ f : errFs
+        pure (Just f)
       ParseError e -> do
         putStrLn $ clrRed "Parsing error: " ++ e
-        pure $ f : errFs
+        pure (Just f)
 
 runQueriesFromFile :: Pipeling -> FilePath -> AppM FileTestResult
 runQueriesFromFile pipeling file = ExceptT $ do
