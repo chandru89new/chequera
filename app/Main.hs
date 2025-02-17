@@ -128,9 +128,9 @@ showFileTestError err = case err of
         ( \(QueryString qs, e') ->
             let qstr = (unwords . words) qs
              in case e' of
-                  QueryTimeout -> logError qstr ++ "\n" ++ logError "Query timed out."
+                  QueryTimeout -> logError qstr ++ "\n" ++ logError "Query timed out.\n"
                   InvalidQuery e -> logError qstr ++ "\n" ++ logError e
-                  UnknownQueryError e -> logError qstr ++ "\n" ++ logError e
+                  UnknownQueryError e -> logError qstr ++ "\n" ++ logError e ++ "\n"
         )
         errs
 

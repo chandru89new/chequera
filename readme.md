@@ -8,6 +8,13 @@
 $ chequera test --path <file/directory>
 ```
 
+## Installation
+
+- Grab the latest release binary for your machine from [releases](https://github.com/chandru89new/chequera/releases/latest)
+- Make sure you have [`steampipe`](https://steampipe.io/downloads) installed.
+- Install the plugin for which you are about to test docs. (eg. `steampipe plugin install aws`)
+- Use chequera to run the test on the docs.
+
 ## Examples
 
 1. Test all queries in the `steampipe-plugin-aws` plugin docs directory:
@@ -22,13 +29,11 @@ $ chequera test --path ./steampipe-plugin-aws/docs
 $ chequera test --path ./steampipe-plugin-aws/docs/tables/aws_s3_bucket.md
 ```
 
-3. Ignore certain files / files with names that contain certain strings:
+3. Ignore certain files / files with names that contain certain strings: (will ignore files/paths whose names contain `aws_s3_bucket` or `aws_sqs_queue`)
 
 ```sh
 $ CQ_IGNORE=aws_s3_bucket,aws_sqs_queue chequera test --path ./steampipe-plugin-aws/docs
 ```
-
-(will ignore files whose names contain `aws_s3_bucket` or `aws_sqs_queue`)
 
 4. Change timeout for each query to 60 seconds (default is 30s):
 
@@ -39,5 +44,6 @@ $ CQ_TIMEOUT=60 chequera test --path ./steampipe-plugin-aws/docs
 TODO:
 
 - [x] release binaries for MacOS and Linux platforms
-- [ ] update readme to add installation instructions
+- [x] update readme to add installation instructions
+- [ ] add support for testing SQLite code blocks
 - [ ] add support for Powerpipe dashboard files that contain queries
