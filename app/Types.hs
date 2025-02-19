@@ -7,7 +7,6 @@ data AppError
   = ExecError String
   | TimeoutError String
   | UnknownError String
-  | QueryExtractionError String
   | InvalidPath String
   deriving (Show)
 

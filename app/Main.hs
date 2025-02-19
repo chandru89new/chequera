@@ -53,7 +53,10 @@ helpText =
        \Commands:\n\
        \  help - Show this help.\n\
        \  version - Show version info.\n\
-       \  test --path <p> - Test queries in markdown files in path <p>. Use absolute paths. eg. `chequera test --path /Users/james/steampipe-plugin-aws/docs\n"
+       \  test --path <p> - Test queries in markdown files in path <p>. Use absolute paths. eg. `chequera test --path /Users/james/steampipe-plugin-aws/docs\n\
+       \Environment:\n\
+       \  CQ_TIMEOUT - Set a custom timeout in seconds. Default is 30s. (eg. CQ_TIMEOUT=60)\n\
+       \  CQ_IGNORE - Ignore files/paths by name. Comma separated. (eg. CQ_IGNORE=aws_s3_bucket,aws_sns_queue)\n"
 
 getCommand :: [String] -> Command
 getCommand [] = Help
@@ -82,7 +85,6 @@ findAllDocFiles pipeling dir = ExceptT $ do
 
 showAppError :: AppError -> String
 showAppError err = case err of
-  QueryExtractionError msg -> logError msg
   ExecError e -> logError e
   TimeoutError cmd -> logError ("Timed out: " ++ (unwords . words) cmd)
   InvalidPath e -> logError ("Invalid path: " ++ e)
