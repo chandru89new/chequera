@@ -41,6 +41,39 @@ $ CQ_IGNORE=aws_s3_bucket,aws_sqs_queue chequera test --path ./steampipe-plugin-
 $ CQ_TIMEOUT=60 chequera test --path ./steampipe-plugin-aws/docs
 ```
 
+## Using the test script
+
+In `scripts/` you'll find a bash file named `test`. You can use this to test all example queries for a Steampipe plugin.
+
+You will need to have installed these tools:
+
+- steampipe
+- git
+- chequera (it should be in your `$PATH` or in a directory in your `$PATH`)
+
+Example:
+
+I want to test the `github` plugin docs:
+
+```sh
+> curl https://raw.githubusercontent.com/chandru89new/chequera/refs/heads/main/scripts/test.sh --output test.sh
+> chmod +x test.sh
+> PLUGIN=github PLUGIN_REPO=github.com/turbot/steampipe-plugin-github ./test.sh
+```
+
+This will download / update the `github` plugin, clone the plugin repo (for docs) and then run `chequera` in the docs folder.
+
+You will need to have these two variables set:
+
+- `PLUGIN` (eg `PLUGIN=github`, or `PLUGIN=orgname/someplugin`)
+- `PLUGING_REPO` (eg `PLUGIN_REPO=github.com/turbot/steampipe-plugin-github` or `PLUGIN_REPO=github.com/orgname/someplugin`)
+
+You can also set `chequera`-specific environment variables before running the comand to pass those to `chequera`:
+
+```sh
+> PLUGIN=github PLUGIN_REPO=github.com/turbot/steampipe-plugin-github CQ_TIMEOUT=120 ./test.sh
+```
+
 TODO:
 
 - [x] release binaries for MacOS and Linux platforms
