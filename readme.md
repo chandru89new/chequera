@@ -45,6 +45,12 @@ $ CQ_TIMEOUT=60 chequera test --path ./steampipe-plugin-aws/docs
 
 In `scripts/` you'll find a bash file named `test`. You can use this to test all example queries for a Steampipe plugin.
 
+You will need to have installed these tools:
+
+- steampipe
+- git
+- chequera (it should be in your `$PATH` or in a directory in your `$PATH`)
+
 Example:
 
 I want to test the `github` plugin docs:

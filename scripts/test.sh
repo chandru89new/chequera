@@ -29,5 +29,4 @@ PLUGIN_SLUG=$(echo "${PLUGIN_REPO}" | sed -e 's/.*\///')
 
 # run chequera
 echo "Running chequera..."
-echo $PLUGIN_SLUG
-chequera test --path ./steampipe-plugin-$PLUGIN/docs
+chequera test --path ./$PLUGIN_SLUG/docs
