@@ -97,6 +97,7 @@ testFile :: Pipeling -> FilePath -> FileTestM ()
 testFile pipeling file = do
   liftIO $ putStrLn $ "\n" ++ logInfo ("Checking: " ++ file)
   queries <- extractQueriesFromFile pipeling file
+  liftIO $ putStrLn $ logInfo ("Total queries found: " ++ show (length queries))
   res <- liftIO $ mapConcurrently testQuery queries
   let errs = concatErrors res
   ExceptT $
