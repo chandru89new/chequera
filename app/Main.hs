@@ -22,6 +22,7 @@ import System.Environment (getArgs, lookupEnv)
 import System.Exit (ExitCode (ExitFailure, ExitSuccess), exitSuccess, exitWith)
 import System.Process (readProcessWithExitCode)
 import Types
+import Data.Maybe (catMaybes)
 
 main :: IO ()
 main = do
@@ -98,28 +99,19 @@ testFile pipeling file = do
   liftIO $ putStrLn $ "\n" ++ logInfo ("Checking: " ++ file)
   queries <- extractQueriesFromFile pipeling file
   res <- liftIO $ mapConcurrently testQuery queries
-  let errs = concatErrors res
+  let errs = catMaybes res
   ExceptT $
     pure $
       if null errs
         then Right ()
         else Left (QueryExecError errs)
  where
-  testQuery :: QueryString -> IO (QueryString, Maybe QueryExecError')
+  testQuery :: QueryString -> IO (Maybe (QueryString, QueryExecError'))
   testQuery qs = do
     r <- runQuery qs
     pure $ case r of
-      Left err -> (qs, Just err)
-      Right _ -> (qs, Nothing)
-
-  concatErrors :: [(QueryString, Maybe QueryExecError')] -> [(QueryString, QueryExecError')]
-  concatErrors =
-    foldl
-      ( \acc (qs, merr) -> case merr of
-          Just err -> (qs, err) : acc
-          Nothing -> acc
-      )
-      []
+      Left err -> Just (qs, err)
+      Right _ -> Nothing
 
 showFileTestError :: FileTestError -> String
 showFileTestError err = case err of
